@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система учета игроков и артефактов</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #166088;
+            --accent-color: #4fc3f7;
+            --card-color: rgba(0, 0, 0, 0.7);
+            --text-color: #ffffff;
+            --border-color: rgba(255, 255, 255, 0.2);
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+                        url('https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: var(--card-color);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.5s ease-out;
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--border-color);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            font-weight: 700;
+            font-size: 2.2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: var(--accent-color);
+            margin-bottom: 30px;
+            font-weight: 400;
+            opacity: 0.8;
+        }
+        
+        .survey-link {
+            display: block;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .survey-link a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+            font-size: 1.1rem;
+        }
+        
+        .survey-link a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        button {
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #resetBtn {
+            background-color: var(--danger-color);
+        }
+        
+        #addPlayerBtn {
+            background-color: var(--success-color);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .status {
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+        
+        .artifacts-library {
+            margin-bottom: 40px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            animation: slideUp 0.6s ease-out;
+            border: 1px solid var(--border-color);
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .artifacts-library h3 {
+            margin-bottom: 15px;
+            color: var(--accent-color);
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .artifacts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 15px;
+        }
+        
+        .artifact {
+            width: 80px;
+            height: 80px;
+            background-size: cover;
+            background-position: center;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            cursor: grab;
+            user-select: none;
+            transition: all 0.3s;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .artifact:hover {
+            transform: translateY(-3px) scale(1.05);
+            border-color: var(--accent-color);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        
+        .artifact.dragging {
+            opacity: 0.8;
+            transform: scale(1.1);
+            z-index: 100;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        
+        .artifact-number {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-weight: bold;
+            color: var(--text-color);
+            font-size: 14px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+        
+        .artifact-remove {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--danger-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0.9;
+            transition: all 0.3s;
+            z-index: 2;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            border: 1px solid white;
+        }
+        
+        .artifact-remove:hover {
+            background-color: #ff0000;
+            transform: scale(1.2);
+            opacity: 1;
+        }
+        
+        .players-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+        }
+        
+        .player {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background-color: var(--card-color);
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            animation: fadeIn 0.5s ease-out;
+            animation-fill-mode: both;
+            border: 1px solid var(--border-color);
+        }
+        
+        .player:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            border-color: var(--accent-color);
+        }
+        
+        .player-header {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        
+        .player-name-input {
+            flex-grow: 1;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 10px;
+            transition: border 0.3s;
+            color: white;
+        }
+        
+        .player-name-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+        }
+        
+        .player-link-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .player-link-input {
+            flex-grow: 1;
+            padding: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border 0.3s;
+            color: white;
+        }
+        
+        .player-link-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+        
+        .player-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            transition: color 0.3s;
+        }
+        
+        .player-link:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        
+        .player-link-icon {
+            margin-right: 5px;
+        }
+        
+        .player-artifacts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .artifact-slot {
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+        
+        .artifact-slot.highlight {
+            background-color: rgba(40, 167, 69, 0.2);
+            border-color: var(--success-color);
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        
+        .empty-slot {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8em;
+            text-align: center;
+            padding: 10px;
+        }
+        
+        /* Кнопки выдачи */
+        .issued-control {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .issued-label {
+            margin-right: 10px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .issued-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .issued-btn {
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .issued-btn-yes {
+            background-color: var(--success-color);
+            color: white;
+            border: 1px solid #218838;
+        }
+        
+        .issued-btn-no {
+            background-color: var(--danger-color);
+            color: white;
+            border: 1px solid #c82333;
+        }
+        
+        .issued-btn.active {
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        /* Поле заметок */
+        .notes-container {
+            margin-top: 10px;
+        }
+        
+        .notes-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .notes-input {
+            width: 100%;
+            padding: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 60px;
+            transition: border 0.3s;
+            color: white;
+        }
+        
+        .notes-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+        }
+        
+        /* Общие заметки */
+        .general-notes {
+            margin-top: 40px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+        }
+        
+        .general-notes h3 {
+            margin-bottom: 15px;
+            color: var(--accent-color);
+        }
+        
+        .general-notes textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 15px;
+            resize: vertical;
+            color: white;
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 1200px) {
+            .players-container {
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .players-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .artifact-slot {
+                width: 70px;
+                height: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Система учета игроков и артефактов</h1>
+        <p class="subtitle">Управление артефактами и опросниками игроков</p>
+        
+        <div class="survey-link">
+            <a href="https://docs.google.com/forms/d/1AN6YxirD_OZ2fa9B0SZRX1wF9mMJ5DEL3wi36aaSdMQ/edit" id="allSurveysLink" target="_blank">Ссылка на все опросники</a>
+        </div>
+        
+        <div class="controls">
+            <button id="resetBtn"><i class="fas fa-redo"></i> Сбросить все данные</button>
+            <button id="addPlayerBtn"><i class="fas fa-plus"></i> Добавить игрока</button>
+            <div class="status">Изменения сохраняются автоматически</div>
+        </div>
+        
+        <div class="artifacts-library">
+            <h3>Библиотека артефактов</h3>
+            <p style="text-align: center; margin-bottom: 15px; color: rgba(255,255,255,0.6);">Перетащите артефакты в слоты игроков</p>
+            <div class="artifacts-grid" id="artifactsGrid"></div>
+        </div>
+        
+        <div class="players-container" id="playersContainer"></div>
+        
+        <div class="general-notes">
+            <h3>Общие заметки и предложения</h3>
+            <textarea id="generalNotes" placeholder="Введите здесь общие заметки, предложения по улучшению или что нужно добавить/заменить..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        // Ключ для localStorage
+        const STORAGE_KEY = 'playersArtifactsSystem_v5';
+        const GENERAL_NOTES_KEY = 'generalNotes';
+        
+        // Создаем начальные данные для 20 игроков
+        function createInitialPlayers() {
+            const players = [];
+            for (let i = 1; i <= 20; i++) {
+                players.push({
+                    id: i,
+                    name: "",
+                    link: "",
+                    artifacts: Array(6).fill(null),
+                    issued: null,
+                    notes: ""
+                });
+            }
+            return players;
+        }
+        
+        // Загружаем данные из localStorage или создаем начальные
+        function loadData() {
+            // Загружаем общие заметки
+            const generalNotes = localStorage.getItem(GENERAL_NOTES_KEY) || "";
+            document.getElementById('generalNotes').value = generalNotes;
+            
+            // Загружаем данные игроков
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                return JSON.parse(savedData);
+            }
+            return createInitialPlayers();
+        }
+        
+        // Сохраняем текущие данные
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+            localStorage.setItem(GENERAL_NOTES_KEY, document.getElementById('generalNotes').value);
+            console.log('Данные сохранены');
+        }
+        
+        // Сбрасываем все данные
+        function resetData() {
+            if (confirm('Вы уверены, что хотите сбросить ВСЕ данные? Все ники, артефакты и заметки будут удалены.')) {
+                players = createInitialPlayers();
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(GENERAL_NOTES_KEY);
+                document.getElementById('generalNotes').value = "";
+                renderPlayers();
+                console.log('Все данные сброшены');
+            }
+        }
+        
+        // Добавляем нового игрока
+        function addNewPlayer() {
+            const newId = players.length > 0 ? Math.max(...players.map(p => p.id)) + 1 : 1;
+            players.push({
+                id: newId,
+                name: "",
+                link: "",
+                artifacts: Array(6).fill(null),
+                issued: null,
+                notes: ""
+            });
+            saveData();
+            renderPlayers();
+        }
+        
+        // Создаем сетку артефактов
+        function createArtifactsGrid() {
+            const grid = document.getElementById('artifactsGrid');
+            grid.innerHTML = '';
+            
+            // Создаем 44 артефакта с картинками
+            for (let i = 1; i <= 44; i++) {
+                const artifact = document.createElement('div');
+                artifact.className = 'artifact';
+                artifact.dataset.id = i;
+                artifact.draggable = true;
+                
+                // Устанавливаем картинку из локальной папки images
+                artifact.style.backgroundImage = `url('/main4/images/арт${i}.jpg')`;
+                artifact.style.backgroundSize = 'cover';
+                artifact.style.backgroundPosition = 'center';
+                
+                // Добавляем номер поверх изображения
+                const number = document.createElement('div');
+                number.className = 'artifact-number';
+                number.textContent = i;
+                
+                artifact.appendChild(number);
+                artifact.addEventListener('dragstart', dragStart);
+                artifact.addEventListener('dragend', dragEnd);
+                
+                grid.appendChild(artifact);
+            }
+        }
+        
+        // Отрисовываем всех игроков
+        function renderPlayers() {
+            const container = document.getElementById('playersContainer');
+            container.innerHTML = '';
+            
+            players.forEach((player, index) => {
+                const playerElement = document.createElement('div');
+                playerElement.className = 'player';
+                playerElement.dataset.id = player.id;
+                
+                // Шапка с ником и ссылкой
+                const header = document.createElement('div');
+                header.className = 'player-header';
+                
+                const nameInput = document.createElement('input');
+                nameInput.className = 'player-name-input';
+                nameInput.type = 'text';
+                nameInput.placeholder = 'Введите ник игрока';
+                nameInput.value = player.name;
+                nameInput.addEventListener('input', (e) => {
+                    player.name = e.target.value;
+                    updatePlayerLink(player);
+                    saveData();
+                });
+                
+                const linkContainer = document.createElement('div');
+                linkContainer.className = 'player-link-container';
+                
+                const linkInput = document.createElement('input');
+                linkInput.className = 'player-link-input';
+                linkInput.type = 'text';
+                linkInput.placeholder = 'Ссылка на опросник';
+                linkInput.value = player.link;
+                linkInput.addEventListener('input', (e) => {
+                    player.link = e.target.value;
+                    saveData();
+                });
+                
+                const link = document.createElement('a');
+                link.className = 'player-link';
+                link.href = player.link;
+                link.target = '_blank';
+                link.innerHTML = '<span class="player-link-icon">🔗</span> Перейти';
+                
+                linkContainer.appendChild(linkInput);
+                linkContainer.appendChild(link);
+                
+                header.appendChild(nameInput);
+                header.appendChild(linkContainer);
+                playerElement.appendChild(header);
+                
+                // Слоты для артефактов
+                const artifactsContainer = document.createElement('div');
+                artifactsContainer.className = 'player-artifacts';
+                
+                for (let i = 0; i < 6; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'artifact-slot';
+                    slot.dataset.playerId = player.id;
+                    slot.dataset.slot = i;
+                    
+                    if (player.artifacts[i]) {
+                        const artifact = createArtifactElement(player.artifacts[i]);
+                        artifact.classList.add('artifact-added');
+                        slot.appendChild(artifact);
+                    } else {
+                        const empty = document.createElement('div');
+                        empty.className = 'empty-slot';
+                        empty.textContent = 'Перетащите артефакт';
+                        slot.appendChild(empty);
+                    }
+                    
+                    // События для перетаскивания
+                    slot.addEventListener('dragover', dragOver);
+                    slot.addEventListener('dragenter', dragEnter);
+                    slot.addEventListener('dragleave', dragLeave);
+                    slot.addEventListener('drop', drop);
+                    
+                    artifactsContainer.appendChild(slot);
+                }
+                
+                playerElement.appendChild(artifactsContainer);
+                
+                // Контроль выдачи
+                const issuedControl = document.createElement('div');
+                issuedControl.className = 'issued-control';
+                
+                const issuedLabel = document.createElement('div');
+                issuedLabel.className = 'issued-label';
+                issuedLabel.textContent = 'Выдано?';
+                
+                const issuedButtons = document.createElement('div');
+                issuedButtons.className = 'issued-buttons';
+                
+                const yesBtn = document.createElement('button');
+                yesBtn.className = `issued-btn issued-btn-yes ${player.issued === true ? 'active' : ''}`;
+                yesBtn.textContent = 'Да';
+                yesBtn.addEventListener('click', () => {
+                    player.issued = true;
+                    yesBtn.classList.add('active');
+                    noBtn.classList.remove('active');
+                    saveData();
+                });
+                
+                const noBtn = document.createElement('button');
+                noBtn.className = `issued-btn issued-btn-no ${player.issued === false ? 'active' : ''}`;
+                noBtn.textContent = 'Нет';
+                noBtn.addEventListener('click', () => {
+                    player.issued = false;
+                    noBtn.classList.add('active');
+                    yesBtn.classList.remove('active');
+                    saveData();
+                });
+                
+                issuedButtons.appendChild(yesBtn);
+                issuedButtons.appendChild(noBtn);
+                
+                issuedControl.appendChild(issuedLabel);
+                issuedControl.appendChild(issuedButtons);
+                playerElement.appendChild(issuedControl);
+                
+                // Поле для заметок
+                const notesContainer = document.createElement('div');
+                notesContainer.className = 'notes-container';
+                
+                const notesLabel = document.createElement('label');
+                notesLabel.className = 'notes-label';
+                notesLabel.textContent = 'Заметки:';
+                notesLabel.htmlFor = `notes-${player.id}`;
+                
+                const notesInput = document.createElement('textarea');
+                notesInput.className = 'notes-input';
+                notesInput.id = `notes-${player.id}`;
+                notesInput.placeholder = 'Введите заметки для этого игрока...';
+                notesInput.value = player.notes || '';
+                notesInput.addEventListener('input', (e) => {
+                    player.notes = e.target.value;
+                    saveData();
+                });
+                
+                notesContainer.appendChild(notesLabel);
+                notesContainer.appendChild(notesInput);
+                playerElement.appendChild(notesContainer);
+                
+                container.appendChild(playerElement);
+            });
+        }
+        
+        // Создаем элемент артефакта
+        function createArtifactElement(artifactId) {
+            const artifact = document.createElement('div');
+            artifact.className = 'artifact';
+            artifact.dataset.id = artifactId;
+            artifact.draggable = true;
+            
+            // Устанавливаем картинку из локальной папки images
+            artifact.style.backgroundImage = `url('/main4/images/арт${i}.jpg')`;;
+            artifact.style.backgroundSize = 'cover';
+            artifact.style.backgroundPosition = 'center';
+            
+            // Добавляем номер артефакта
+            const number = document.createElement('div');
+            number.className = 'artifact-number';
+            number.textContent = artifactId;
+            
+            // Кнопка удаления (крестик)
+            const removeBtn = document.createElement('div');
+            removeBtn.className = 'artifact-remove';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeArtifact(artifact);
+            });
+            
+            artifact.appendChild(number);
+            artifact.appendChild(removeBtn);
+            artifact.addEventListener('dragstart', dragStart);
+            artifact.addEventListener('dragend', dragEnd);
+            
+            return artifact;
+        }
+        
+        // Удаляем артефакт из слота
+        function removeArtifact(artifactElement) {
+            const slot = artifactElement.parentElement;
+            if (slot.classList.contains('artifact-slot')) {
+                const playerId = parseInt(slot.dataset.playerId);
+                const slotIndex = parseInt(slot.dataset.slot);
+                
+                // Обновляем данные
+                const player = players.find(p => p.id === playerId);
+                if (player) {
+                    player.artifacts[slotIndex] = null;
+                    
+                    // Очищаем слот
+                    slot.innerHTML = '';
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-slot';
+                    empty.textContent = 'Перетащите артефакт';
+                    slot.appendChild(empty);
+                    
+                    saveData();
+                }
+            }
+        }
+        
+        // Обновляем ссылку на опросник
+        function updatePlayerLink(player) {
+            const playerElement = document.querySelector(`.player[data-id="${player.id}"]`);
+            if (playerElement) {
+                const link = playerElement.querySelector('.player-link');
+                link.href = player.link;
+            }
+        }
+        
+        // Перетаскивание артефактов
+        let draggedItem = null;
+        
+        function dragStart(e) {
+            draggedItem = this;
+            this.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+            
+            // Эффект при начале перетаскивания
+            setTimeout(() => {
+                this.style.opacity = '0.4';
+            }, 0);
+        }
+        
+        function dragEnd() {
+            this.classList.remove('dragging');
+            this.style.opacity = '1';
+            draggedItem = null;
+        }
+        
+        function dragOver(e) {
+            e.preventDefault();
+        }
+        
+        function dragEnter(e) {
+            e.preventDefault();
+            this.classList.add('highlight');
+        }
+        
+        function dragLeave() {
+            this.classList.remove('highlight');
+        }
+        
+        function drop(e) {
+            e.preventDefault();
+            this.classList.remove('highlight');
+            
+            const artifactId = e.dataTransfer.getData('text/plain');
+            const playerId = parseInt(this.dataset.playerId);
+            const slotIndex = parseInt(this.dataset.slot);
+            
+            // Находим игрока
+            const player = players.find(p => p.id === playerId);
+            if (!player) return;
+            
+            // Если перетаскиваем из библиотеки артефактов
+            if (draggedItem && draggedItem.parentElement.id === 'artifactsGrid') {
+                // Создаем новую копию артефакта
+                const newArtifact = createArtifactElement(artifactId);
+                newArtifact.classList.add('artifact-added');
+                
+                // Очищаем слот
+                this.innerHTML = '';
+                this.appendChild(newArtifact);
+                
+                // Обновляем данные игрока
+                player.artifacts[slotIndex] = parseInt(artifactId);
+            }
+            // Если перетаскиваем между слотами
+            else if (draggedItem && draggedItem.classList.contains('artifact')) {
+                const sourceSlot = draggedItem.parentElement;
+                const sourcePlayerId = parseInt(sourceSlot.dataset.playerId);
+                const sourceSlotIndex = parseInt(sourceSlot.dataset.slot);
+                
+                // Находим исходного игрока
+                const sourcePlayer = players.find(p => p.id === sourcePlayerId);
+                if (!sourcePlayer) return;
+                
+                // Получаем ID артефакта
+                const movedArtifactId = parseInt(draggedItem.dataset.id);
+                
+                // Если слот пустой
+                if (this.childNodes.length === 1 && this.firstChild.classList.contains('empty-slot')) {
+                    // Перемещаем артефакт
+                    this.innerHTML = '';
+                    draggedItem.classList.add('artifact-added');
+                    this.appendChild(draggedItem);
+                    
+                    // Обновляем данные
+                    player.artifacts[slotIndex] = movedArtifactId;
+                    sourcePlayer.artifacts[sourceSlotIndex] = null;
+                    
+                    // Очищаем исходный слот
+                    sourceSlot.innerHTML = '';
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-slot';
+                    empty.textContent = 'Перетащите артефакт';
+                    sourceSlot.appendChild(empty);
+                }
+                // Если слот занят - меняем местами
+                else if (this.firstChild.classList.contains('artifact')) {
+                    const targetArtifact = this.firstChild;
+                    const targetArtifactId = parseInt(targetArtifact.dataset.id);
+                    
+                    // Меняем артефакты местами
+                    this.replaceChild(draggedItem, targetArtifact);
+                    sourceSlot.appendChild(targetArtifact);
+                    
+                    // Обновляем данные
+                    player.artifacts[slotIndex] = movedArtifactId;
+                    sourcePlayer.artifacts[sourceSlotIndex] = targetArtifactId;
+                }
+            }
+            
+            saveData();
+        }
+        
+        // Загружаем данные
+        let players = loadData();
+        
+        // Инициализация страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            createArtifactsGrid();
+            renderPlayers();
+            
+            // Кнопка сброса
+            document.getElementById('resetBtn').addEventListener('click', resetData);
+            
+            // Кнопка добавления игрока
+            document.getElementById('addPlayerBtn').addEventListener('click', addNewPlayer);
+            
+            // Сохранение общих заметок
+            document.getElementById('generalNotes').addEventListener('input', saveData);
+            
+            // Периодическое сохранение (на всякий случай)
+            setInterval(saveData, 30000);
+        });
+    </script>
+</body>
+</html>
