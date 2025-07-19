@@ -588,11 +588,10 @@
         }
         
         // Создаем сетку артефактов
-        function createArtifactsGrid() {
+           function createArtifactsGrid() {
             const grid = document.getElementById('artifactsGrid');
             grid.innerHTML = '';
             
-            // Создаем 44 артефакта с картинками
             for (let i = 1; i <= 44; i++) {
                 const artifact = document.createElement('div');
                 artifact.className = 'artifact';
@@ -773,7 +772,7 @@
             artifact.draggable = true;
             
             // Устанавливаем картинку из локальной папки images
-            artifact.style.backgroundImage = `url('/main4/images/арт${i}.jpg')`;;
+            artifact.style.backgroundImage = `url('images/art${artifactId}.jpg')`:
             artifact.style.backgroundSize = 'cover';
             artifact.style.backgroundPosition = 'center';
             
