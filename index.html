@@ -124,6 +124,10 @@
             background-color: var(--success-color);
         }
         
+        #syncBtn {
+            background-color: var(--info-color);
+        }
+        
         button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.4);
@@ -329,7 +333,7 @@
         
         .player-artifacts {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, 1fr));
             gap: 15px;
             margin-bottom: 15px;
         }
@@ -524,6 +528,24 @@
             opacity: 1;
         }
         
+        .github-sync-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: var(--info-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .github-sync-status.show {
+            opacity: 1;
+        }
+        
         @media (max-width: 1200px) {
             .players-container {
                 grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -563,6 +585,7 @@
         <div class="controls">
             <button id="resetBtn"><i class="fas fa-redo"></i> Сбросить все данные</button>
             <button id="addPlayerBtn"><i class="fas fa-plus"></i> Добавить игрока</button>
+            <button id="syncBtn"><i class="fas fa-sync-alt"></i> Синхронизировать с GitHub</button>
             <div class="status">Изменения сохраняются автоматически <span id="lastSync" class="sync-status"></span></div>
         </div>
         
@@ -715,13 +738,24 @@
     </div>
 
     <div class="sync-notification" id="syncNotification">Данные синхронизированы!</div>
+    <div class="github-sync-status" id="githubSyncStatus">Синхронизация с GitHub...</div>
 
     <script>
+        // Конфигурация GitHub API
+        const GITHUB_CONFIG = {
+            username: 'DeadPigeon228',
+            repo: 'artefact',
+            token: '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',
+            dataFile: 'data.json',
+            branch: 'main'
+        };
+
         // Ключи для localStorage
         const STORAGE_KEY = 'playersArtifactsSystem_v7';
         const GENERAL_NOTES_KEY = 'generalNotes_v3';
         const LAST_SYNC_KEY = 'lastSync_v3';
         const TIMESTAMP_KEY = 'lastUpdateTimestamp_v2';
+        const GITHUB_SYNC_KEY = 'githubLastSync_v1';
         
         // Создаем начальные данные для 20 игроков
         function createInitialPlayers() {
@@ -1181,6 +1215,129 @@
             }, 3000);
         }
         
+        // Показываем статус синхронизации с GitHub
+        function showGitHubSyncStatus(message, isSuccess = true) {
+            const statusElement = document.getElementById('githubSyncStatus');
+            statusElement.textContent = message;
+            statusElement.style.backgroundColor = isSuccess ? var(--success-color) : var(--danger-color);
+            statusElement.classList.add('show');
+            
+            setTimeout(() => {
+                statusElement.classList.remove('show');
+            }, 3000);
+        }
+        
+        // GitHub API: Получаем данные из репозитория
+        async function fetchDataFromGitHub() {
+            showGitHubSyncStatus('Загрузка данных с GitHub...');
+            
+            try {
+                const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.dataFile}?ref=${GITHUB_CONFIG.branch}`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${GITHUB_CONFIG.token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const content = atob(data.content);
+                
+                try {
+                    const parsedData = JSON.parse(content);
+                    if (Array.isArray(parsedData.players)) {
+                        players = parsedData.players;
+                        document.getElementById('generalNotes').value = parsedData.generalNotes || '';
+                        
+                        saveData();
+                        renderPlayers();
+                        
+                        const lastSync = new Date().toLocaleString('ru-RU');
+                        localStorage.setItem(GITHUB_SYNC_KEY, lastSync);
+                        showGitHubSyncStatus('Данные успешно загружены с GitHub!');
+                    } else {
+                        throw new Error('Неверный формат данных');
+                    }
+                } catch (parseError) {
+                    throw new Error(`Ошибка парсинга данных: ${parseError.message}`);
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке данных с GitHub:', error);
+                showGitHubSyncStatus(`Ошибка: ${error.message}`, false);
+            }
+        }
+        
+        // GitHub API: Сохраняем данные в репозиторий
+        async function saveDataToGitHub() {
+            showGitHubSyncStatus('Сохранение данных на GitHub...');
+            
+            try {
+                // Сначала получаем текущий SHA файла (если он существует)
+                let sha = null;
+                try {
+                    const getUrl = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.dataFile}?ref=${GITHUB_CONFIG.branch}`;
+                    const getResponse = await fetch(getUrl, {
+                        headers: {
+                            'Authorization': `token ${GITHUB_CONFIG.token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+                    
+                    if (getResponse.ok) {
+                        const data = await getResponse.json();
+                        sha = data.sha;
+                    }
+                } catch (e) {
+                    // Файл может не существовать, это нормально
+                }
+                
+                // Подготавливаем данные для сохранения
+                const dataToSave = {
+                    players: players,
+                    generalNotes: document.getElementById('generalNotes').value,
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                const content = btoa(unescape(encodeURIComponent(JSON.stringify(dataToSave, null, 2))));
+                
+                const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.dataFile}`;
+                
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GITHUB_CONFIG.token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: 'Обновление данных системы учета артефактов',
+                        content: content,
+                        sha: sha,
+                        branch: GITHUB_CONFIG.branch
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка HTTP: ${response.status}`);
+                }
+                
+                const lastSync = new Date().toLocaleString('ru-RU');
+                localStorage.setItem(GITHUB_SYNC_KEY, lastSync);
+                showGitHubSyncStatus('Данные успешно сохранены на GitHub!');
+                
+                return true;
+            } catch (error) {
+                console.error('Ошибка при сохранении данных на GitHub:', error);
+                showGitHubSyncStatus(`Ошибка: ${error.message}`, false);
+                return false;
+            }
+        }
+        
         // Улучшенная синхронизация данных между вкладками и устройствами
         function setupSync() {
             // 1. Синхронизация через событие storage (основной метод)
@@ -1208,6 +1365,11 @@
             setInterval(() => {
                 saveData();
             }, 15000);
+            
+            // 4. Периодическая синхронизация с GitHub (каждые 5 минут)
+            setInterval(() => {
+                fetchDataFromGitHub();
+            }, 5 * 60 * 1000);
         }
         
         // Проверка обновлений данных
@@ -1263,6 +1425,13 @@
             // Настройка кнопок
             document.getElementById('resetBtn').addEventListener('click', resetData);
             document.getElementById('addPlayerBtn').addEventListener('click', addNewPlayer);
+            document.getElementById('syncBtn').addEventListener('click', () => {
+                saveDataToGitHub().then(success => {
+                    if (success) {
+                        fetchDataFromGitHub();
+                    }
+                });
+            });
             
             // Настройка синхронизации
             setupSync();
@@ -1277,6 +1446,9 @@
             
             // Первоначальная проверка обновлений
             checkForUpdates();
+            
+            // Первоначальная загрузка данных с GitHub
+            fetchDataFromGitHub();
         });
     </script>
 </body>
