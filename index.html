@@ -17,6 +17,7 @@
             --success-color: #28a745;
             --danger-color: #dc3545;
             --warning-color: #ffc107;
+            --info-color: #17a2b8;
         }
         
         * {
@@ -123,6 +124,10 @@
             background-color: var(--success-color);
         }
         
+        #syncBtn {
+            background-color: var(--info-color);
+        }
+        
         button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.4);
@@ -135,6 +140,12 @@
         .status {
             color: var(--accent-color);
             font-weight: 500;
+        }
+        
+        .sync-status {
+            color: var(--info-color);
+            font-weight: 500;
+            margin-left: 10px;
         }
         
         .artifacts-library {
@@ -544,7 +555,8 @@
         <div class="controls">
             <button id="resetBtn"><i class="fas fa-redo"></i> Сбросить все данные</button>
             <button id="addPlayerBtn"><i class="fas fa-plus"></i> Добавить игрока</button>
-            <div class="status">Изменения сохраняются автоматически</div>
+            <button id="syncBtn"><i class="fas fa-sync-alt"></i> Синхронизировать</button>
+            <div class="status">Изменения сохраняются автоматически <span id="lastSync" class="sync-status"></span></div>
         </div>
         
         <div class="artifacts-library">
@@ -696,9 +708,10 @@
     </div>
 
     <script>
-        // Ключ для localStorage
+        // Ключи для localStorage
         const STORAGE_KEY = 'playersArtifactsSystem_v5';
         const GENERAL_NOTES_KEY = 'generalNotes';
+        const LAST_SYNC_KEY = 'lastSync';
         
         // Создаем начальные данные для 20 игроков
         function createInitialPlayers() {
@@ -721,6 +734,11 @@
             const generalNotes = localStorage.getItem(GENERAL_NOTES_KEY) || "";
             document.getElementById('generalNotes').value = generalNotes;
             
+            const lastSync = localStorage.getItem(LAST_SYNC_KEY);
+            if (lastSync) {
+                document.getElementById('lastSync').textContent = `Последняя синхронизация: ${lastSync}`;
+            }
+            
             const savedData = localStorage.getItem(STORAGE_KEY);
             if (savedData) {
                 return JSON.parse(savedData);
@@ -732,6 +750,22 @@
         function saveData() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
             localStorage.setItem(GENERAL_NOTES_KEY, document.getElementById('generalNotes').value);
+            updateLastSyncTime();
+        }
+        
+        // Обновляем время последней синхронизации
+        function updateLastSyncTime() {
+            const now = new Date();
+            const formattedTime = now.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            localStorage.setItem(LAST_SYNC_KEY, formattedTime);
+            document.getElementById('lastSync').textContent = `Последняя синхронизация: ${formattedTime}`;
         }
         
         // Сбрасываем все данные
@@ -740,7 +774,9 @@
                 players = createInitialPlayers();
                 localStorage.removeItem(STORAGE_KEY);
                 localStorage.removeItem(GENERAL_NOTES_KEY);
+                localStorage.removeItem(LAST_SYNC_KEY);
                 document.getElementById('generalNotes').value = "";
+                document.getElementById('lastSync').textContent = "";
                 renderPlayers();
             }
         }
@@ -1120,6 +1156,38 @@
             saveData();
         }
         
+        // Синхронизация данных между вкладками
+        function setupSync() {
+            // Обработчик событий storage
+            window.addEventListener('storage', (e) => {
+                if (e.key === STORAGE_KEY && e.newValue) {
+                    try {
+                        const newData = JSON.parse(e.newValue);
+                        if (Array.isArray(newData)) {
+                            players = newData;
+                            renderPlayers();
+                            updateLastSyncTime();
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при синхронизации данных:', error);
+                    }
+                }
+                
+                if (e.key === GENERAL_NOTES_KEY) {
+                    document.getElementById('generalNotes').value = e.newValue || '';
+                }
+                
+                if (e.key === LAST_SYNC_KEY) {
+                    document.getElementById('lastSync').textContent = e.newValue ? `Последняя синхронизация: ${e.newValue}` : '';
+                }
+            });
+            
+            // Периодическая синхронизация (на случай, если событие storage не сработало)
+            setInterval(() => {
+                saveData();
+            }, 30000); // Каждые 30 секунд
+        }
+        
         // Загружаем данные
         let players = loadData();
         
@@ -1133,11 +1201,21 @@
             
             renderPlayers();
             
+            // Настройка кнопок
             document.getElementById('resetBtn').addEventListener('click', resetData);
             document.getElementById('addPlayerBtn').addEventListener('click', addNewPlayer);
+            document.getElementById('syncBtn').addEventListener('click', () => {
+                saveData();
+                alert('Данные синхронизированы!');
+            });
+            
+            // Настройка синхронизации
+            setupSync();
+            
+            // Автосохранение общих заметок
             document.getElementById('generalNotes').addEventListener('input', saveData);
-            setInterval(saveData, 30000);
         });
     </script>
+    
 </body>
 </html>
