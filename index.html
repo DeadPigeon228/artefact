@@ -124,10 +124,6 @@
             background-color: var(--success-color);
         }
         
-        #syncBtn {
-            background-color: var(--info-color);
-        }
-        
         button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.4);
@@ -371,7 +367,6 @@
             padding: 10px;
         }
         
-        /* Обновленные стили для кнопок "Выдано" */
         .issued-control {
             display: flex;
             align-items: center;
@@ -414,7 +409,6 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         
-        /* Поле заметок */
         .notes-container {
             margin-top: 10px;
         }
@@ -445,7 +439,6 @@
             box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
         }
         
-        /* Общие заметки */
         .general-notes {
             margin-top: 40px;
             padding: 20px;
@@ -473,7 +466,6 @@
             color: white;
         }
         
-        /* Кнопка удаления игрока */
         .player-delete-btn {
             position: absolute;
             top: 10px;
@@ -500,7 +492,6 @@
             background-color: #ff0000;
         }
         
-        /* Drag preview */
         .drag-preview {
             position: fixed;
             pointer-events: none;
@@ -515,7 +506,24 @@
             opacity: 0.9;
         }
         
-        /* Адаптивность */
+        .sync-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--success-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .sync-notification.show {
+            opacity: 1;
+        }
+        
         @media (max-width: 1200px) {
             .players-container {
                 grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -555,7 +563,6 @@
         <div class="controls">
             <button id="resetBtn"><i class="fas fa-redo"></i> Сбросить все данные</button>
             <button id="addPlayerBtn"><i class="fas fa-plus"></i> Добавить игрока</button>
-            <button id="syncBtn"><i class="fas fa-sync-alt"></i> Синхронизировать</button>
             <div class="status">Изменения сохраняются автоматически <span id="lastSync" class="sync-status"></span></div>
         </div>
         
@@ -707,11 +714,14 @@
         </div>
     </div>
 
+    <div class="sync-notification" id="syncNotification">Данные синхронизированы!</div>
+
     <script>
         // Ключи для localStorage
-        const STORAGE_KEY = 'playersArtifactsSystem_v5';
-        const GENERAL_NOTES_KEY = 'generalNotes';
-        const LAST_SYNC_KEY = 'lastSync';
+        const STORAGE_KEY = 'playersArtifactsSystem_v7';
+        const GENERAL_NOTES_KEY = 'generalNotes_v3';
+        const LAST_SYNC_KEY = 'lastSync_v3';
+        const TIMESTAMP_KEY = 'lastUpdateTimestamp_v2';
         
         // Создаем начальные данные для 20 игроков
         function createInitialPlayers() {
@@ -750,6 +760,11 @@
         function saveData() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
             localStorage.setItem(GENERAL_NOTES_KEY, document.getElementById('generalNotes').value);
+            
+            // Устанавливаем метку времени обновления
+            const timestamp = Date.now().toString();
+            localStorage.setItem(TIMESTAMP_KEY, timestamp);
+            
             updateLastSyncTime();
         }
         
@@ -775,6 +790,7 @@
                 localStorage.removeItem(STORAGE_KEY);
                 localStorage.removeItem(GENERAL_NOTES_KEY);
                 localStorage.removeItem(LAST_SYNC_KEY);
+                localStorage.removeItem(TIMESTAMP_KEY);
                 document.getElementById('generalNotes').value = "";
                 document.getElementById('lastSync').textContent = "";
                 renderPlayers();
@@ -896,7 +912,7 @@
                 
                 playerElement.appendChild(artifactsContainer);
                 
-                // Контроль выдачи (обновленные кнопки)
+                // Контроль выдачи
                 const issuedControl = document.createElement('div');
                 issuedControl.className = 'issued-control';
                 
@@ -1156,25 +1172,26 @@
             saveData();
         }
         
-        // Синхронизация данных между вкладками
+        // Показываем уведомление о синхронизации
+        function showSyncNotification() {
+            const notification = document.getElementById('syncNotification');
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Улучшенная синхронизация данных между вкладками и устройствами
         function setupSync() {
-            // Обработчик событий storage
+            // 1. Синхронизация через событие storage (основной метод)
             window.addEventListener('storage', (e) => {
                 if (e.key === STORAGE_KEY && e.newValue) {
-                    try {
-                        const newData = JSON.parse(e.newValue);
-                        if (Array.isArray(newData)) {
-                            players = newData;
-                            renderPlayers();
-                            updateLastSyncTime();
-                        }
-                    } catch (error) {
-                        console.error('Ошибка при синхронизации данных:', error);
-                    }
+                    processDataUpdate(e.newValue);
                 }
                 
                 if (e.key === GENERAL_NOTES_KEY) {
                     document.getElementById('generalNotes').value = e.newValue || '';
+                    showSyncNotification();
                 }
                 
                 if (e.key === LAST_SYNC_KEY) {
@@ -1182,10 +1199,52 @@
                 }
             });
             
-            // Периодическая синхронизация (на случай, если событие storage не сработало)
+            // 2. Альтернативный метод: проверка timestamp каждые 2 секунды
+            setInterval(() => {
+                checkForUpdates();
+            }, 2000);
+            
+            // 3. Периодическое сохранение (каждые 15 секунд)
             setInterval(() => {
                 saveData();
-            }, 30000); // Каждые 30 секунд
+            }, 15000);
+        }
+        
+        // Проверка обновлений данных
+        function checkForUpdates() {
+            const lastUpdate = localStorage.getItem(TIMESTAMP_KEY);
+            const currentUpdate = localStorage.getItem('currentTimestamp_v2');
+            
+            if (lastUpdate && currentUpdate && lastUpdate !== currentUpdate) {
+                // Данные были обновлены в другой вкладке
+                const savedData = localStorage.getItem(STORAGE_KEY);
+                if (savedData) {
+                    processDataUpdate(savedData);
+                }
+                
+                const generalNotes = localStorage.getItem(GENERAL_NOTES_KEY);
+                if (generalNotes !== null) {
+                    document.getElementById('generalNotes').value = generalNotes;
+                }
+                
+                localStorage.setItem('currentTimestamp_v2', lastUpdate);
+                showSyncNotification();
+            }
+        }
+        
+        // Обработка обновленных данных
+        function processDataUpdate(newData) {
+            try {
+                const parsedData = JSON.parse(newData);
+                if (Array.isArray(parsedData)) {
+                    players = parsedData;
+                    renderPlayers();
+                    updateLastSyncTime();
+                    showSyncNotification();
+                }
+            } catch (error) {
+                console.error('Ошибка при обработке обновленных данных:', error);
+            }
         }
         
         // Загружаем данные
@@ -1204,18 +1263,21 @@
             // Настройка кнопок
             document.getElementById('resetBtn').addEventListener('click', resetData);
             document.getElementById('addPlayerBtn').addEventListener('click', addNewPlayer);
-            document.getElementById('syncBtn').addEventListener('click', () => {
-                saveData();
-                alert('Данные синхронизированы!');
-            });
             
             // Настройка синхронизации
             setupSync();
             
+            // Устанавливаем начальную метку времени
+            if (!localStorage.getItem('currentTimestamp_v2')) {
+                localStorage.setItem('currentTimestamp_v2', Date.now().toString());
+            }
+            
             // Автосохранение общих заметок
             document.getElementById('generalNotes').addEventListener('input', saveData);
+            
+            // Первоначальная проверка обновлений
+            checkForUpdates();
         });
     </script>
-    
 </body>
 </html>
