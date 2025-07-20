@@ -1228,7 +1228,7 @@
         function showGitHubSyncStatus(message, isError = false) {
             const statusElement = document.getElementById('githubSyncStatus');
             statusElement.textContent = message;
-            statusElement.style.backgroundColor = isError ? var(--danger-color) : var(--success-color);
+            statusElement.style.backgroundColor = isError ? 'var(--danger-color)' : 'var(--success-color)';
             statusElement.classList.add('show');
             
             setTimeout(() => {
