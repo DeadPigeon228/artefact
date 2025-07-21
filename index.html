@@ -757,42 +757,43 @@
             }
             return createInitialPlayers();
         }
-        
-        // Загружаем все данные (сначала с GitHub, потом локальные)
-        async function loadAllData() {
-            try {
-                // Пытаемся загрузить с GitHub
-                const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`, {
-                    headers: {
-                        'Authorization': `token ${GITHUB_TOKEN}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const fileData = await response.json();
-                    const content = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
-                    
-                    // Сохраняем в localStorage
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(content.players));
-                    localStorage.setItem(GENERAL_NOTES_KEY, content.generalNotes || '');
-                    
-                    return {
-                        players: content.players || createInitialPlayers(),
-                        generalNotes: content.generalNotes || ""
-                    };
-                }
-            } catch (error) {
-                console.error("Ошибка загрузки с GitHub:", error);
+    async function loadAllData() {
+    try {
+        // Пытаемся загрузить с GitHub
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
             }
-            
-            // Если не удалось загрузить с GitHub, пробуем локальные данные
-            return {
-                players: loadLocalPlayers(),
-                generalNotes: localStorage.getItem(GENERAL_NOTES_KEY) || ""
-            };
-        }
+        });
         
+        if (response.ok) {
+            const fileData = await response.json();
+            // Проверяем, что файл не пустой
+            if (fileData.content && fileData.content !== "") {
+                const content = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+                
+                // Сохраняем в localStorage
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(content.players || []));
+                localStorage.setItem(GENERAL_NOTES_KEY, content.generalNotes || '');
+                
+                return {
+                    players: content.players || createInitialPlayers(),
+                    generalNotes: content.generalNotes || ""
+                };
+            }
+        }
+    } catch (error) {
+        console.error("Ошибка загрузки с GitHub:", error);
+    }
+    
+    // Если не удалось загрузить с GitHub или файл пустой, пробуем локальные данные
+    const localPlayers = loadLocalPlayers();
+    return {
+        players: localPlayers && localPlayers.length > 0 ? localPlayers : createInitialPlayers(),
+        generalNotes: localStorage.getItem(GENERAL_NOTES_KEY) || ""
+    };
+}
         // Сохраняем все данные (и локально, и на GitHub)
         async function saveAllData() {
             const data = {
