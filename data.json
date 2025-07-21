@@ -1,14 +1,1 @@
-{
-  "players": [
-    {
-      "id": 1,
-      "name": "Ник игрока",
-      "link": "https://...",
-      "artifacts": [1, 5, null, 10, null, null],
-      "issued": true,
-      "notes": "Комментарий"
-    }
-  ],
-  "generalNotes": "Общие заметки...",
-  "updatedAt": "2023-11-20T12:00:00.000Z"
-}
+
