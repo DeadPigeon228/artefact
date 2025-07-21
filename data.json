@@ -2,21 +2,13 @@
   "players": [
     {
       "id": 1,
-      "name": "",
-      "link": "",
-      "artifacts": [null, null, null, null, null, null],
-      "issued": null,
-      "notes": ""
-    },
-    {
-      "id": 2,
-      "name": "",
-      "link": "",
-      "artifacts": [null, null, null, null, null, null],
-      "issued": null,
-      "notes": ""
+      "name": "Ник игрока",
+      "link": "https://...",
+      "artifacts": [1, 5, null, 10, null, null],
+      "issued": true,
+      "notes": "Комментарий"
     }
   ],
-  "generalNotes": "",
-  "lastUpdated": "2023-01-01T00:00:00.000Z"
+  "generalNotes": "Общие заметки...",
+  "updatedAt": "2023-11-20T12:00:00.000Z"
 }
