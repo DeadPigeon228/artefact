@@ -579,7 +579,7 @@
             <div class="status">Статус: <span id="lastSync" class="sync-status">загрузка...</span></div>
         </div>
         
-               <div class="artifacts-library">
+        <div class="artifacts-library">
             <h3>Библиотека артефактов</h3>
             <p style="text-align: center; margin-bottom: 15px; color: rgba(255,255,255,0.6);">Перетащите артефакты в слоты игроков</p>
             <div class="artifacts-grid" id="artifactsGrid">
@@ -1042,8 +1042,13 @@
             artifact.dataset.id = artifactId;
             artifact.draggable = true;
             
-            // Устанавливаем картинку (вы можете добавить свои URL здесь)
-            artifact.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            // Устанавливаем картинку из библиотеки артефактов
+            const artifactInLibrary = document.querySelector(`.artifact[data-id="${artifactId}"]`);
+            if (artifactInLibrary) {
+                artifact.style.backgroundImage = artifactInLibrary.style.backgroundImage;
+            } else {
+                artifact.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }
             
             const number = document.createElement('div');
             number.className = 'artifact-number';
@@ -1110,7 +1115,7 @@
             // Создаем превью для перетаскивания
             dragPreview = document.createElement('div');
             dragPreview.className = 'drag-preview';
-            dragPreview.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            dragPreview.style.backgroundImage = this.style.backgroundImage;
             document.body.appendChild(dragPreview);
             
             // Позиционируем превью
@@ -1234,35 +1239,8 @@
             }, 3000);
         }
         
-        // Создаем артефакты в библиотеке
-        function createArtifactsLibrary() {
-            const artifactsGrid = document.getElementById('artifactsGrid');
-            artifactsGrid.innerHTML = '';
-            
-            for (let i = 1; i <= 44; i++) {
-                const artifact = document.createElement('div');
-                artifact.className = 'artifact';
-                artifact.dataset.id = i;
-                artifact.draggable = true;
-                artifact.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                
-                const number = document.createElement('div');
-                number.className = 'artifact-number';
-                number.textContent = i;
-                
-                artifact.appendChild(number);
-                artifact.addEventListener('dragstart', dragStart);
-                artifact.addEventListener('dragend', dragEnd);
-                
-                artifactsGrid.appendChild(artifact);
-            }
-        }
-        
         // Инициализация страницы
         document.addEventListener('DOMContentLoaded', async () => {
-            // Создаем библиотеку артефактов
-            createArtifactsLibrary();
-            
             // Загружаем данные из Firebase
             await loadData();
             
@@ -1270,6 +1248,13 @@
             document.getElementById('resetBtn').addEventListener('click', resetData);
             document.getElementById('addPlayerBtn').addEventListener('click', addNewPlayer);
             document.getElementById('saveBtn').addEventListener('click', saveData);
+            
+            // Добавляем обработчики событий перетаскивания для артефактов в библиотеке
+            const artifacts = document.querySelectorAll('#artifactsGrid .artifact');
+            artifacts.forEach(artifact => {
+                artifact.addEventListener('dragstart', dragStart);
+                artifact.addEventListener('dragend', dragEnd);
+            });
             
             // Слушаем изменения в Firebase в реальном времени
             database.ref('data').on('value', (snapshot) => {
