@@ -102,6 +102,60 @@
             border: 1px solid var(--border-color);
         }
         
+        .sort-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .sort-controls label {
+            font-weight: 500;
+            color: var(--accent-color);
+        }
+        
+        .sort-controls select {
+            padding: 8px 12px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+        }
+        
+        /* Стили для выпадающего списка */
+        .sort-controls select {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .sort-controls select:hover {
+            border-color: var(--accent-color);
+        }
+        
+        .sort-controls select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.3);
+        }
+        
+        /* Стили для опций в выпадающем списке */
+        .sort-controls select option {
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px;
+        }
+        
         button {
             padding: 10px 20px;
             color: white;
@@ -126,6 +180,10 @@
         
         #saveBtn {
             background-color: var(--primary-color);
+        }
+        
+        #sortBtn {
+            background-color: var(--info-color);
         }
         
         button:hover {
@@ -260,17 +318,24 @@
             animation-fill-mode: both;
             border: 1px solid var(--border-color);
             position: relative;
-            display: none; /* Изначально скрыты */
+            display: none;
         }
         
         .player.visible {
-            display: flex; /* Показываем при добавлении */
+            display: flex;
         }
         
         .player:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
             border-color: var(--accent-color);
+        }
+        
+        .player.dragging {
+            opacity: 0.7;
+            transform: rotate(5deg);
+            border-color: var(--accent-color);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.7);
         }
         
         .player-header {
@@ -501,6 +566,36 @@
             background-color: #ff0000;
         }
         
+        .player-drag-handle {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: grab;
+            opacity: 0.7;
+            transition: all 0.3s;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .player-drag-handle:hover {
+            opacity: 1;
+            transform: scale(1.1);
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .player-drag-handle:active {
+            cursor: grabbing;
+        }
+        
         .drag-preview {
             position: fixed;
             pointer-events: none;
@@ -513,6 +608,19 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
             transform: translate(-50%, -50%);
             opacity: 0.9;
+        }
+        
+        .player-drag-preview {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            width: 320px;
+            background-color: var(--card-color);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            transform: translate(-50%, -50%) rotate(5deg);
+            opacity: 0.9;
+            border: 2px solid var(--accent-color);
         }
         
         .sync-notification {
@@ -533,6 +641,19 @@
             opacity: 1;
         }
         
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .player-artifacts-count {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+        
         @media (max-width: 1200px) {
             .players-container {
                 grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -549,6 +670,11 @@
             }
             
             .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .sort-controls {
                 flex-direction: column;
                 gap: 10px;
             }
@@ -577,6 +703,21 @@
             <button id="addPlayerBtn"><i class="fas fa-plus"></i> Добавить игрока</button>
             <button id="saveBtn"><i class="fas fa-save"></i> Сохранить в Firebase</button>
             <div class="status">Статус: <span id="lastSync" class="sync-status">загрузка...</span></div>
+        </div>
+        
+        <div class="sort-controls">
+            <label for="sortType">Сортировка игроков:</label>
+            <select id="sortType">
+                <option value="none">Без сортировки</option>
+                <option value="empty-first">От незаполненных к заполненным</option>
+                <option value="filled-first">От заполненных к незаполненным</option>
+                <option value="name">По имени (А-Я)</option>
+                <option value="artifacts">По количеству артефактов</option>
+            </select>
+            <button id="sortBtn"><i class="fas fa-sort"></i> Применить сортировку</button>
+            <div style="margin-left: auto; font-size: 14px; color: rgba(255,255,255,0.7);">
+                <i class="fas fa-arrows-alt"></i> Перетащите игроков за ручку для изменения порядка
+            </div>
         </div>
         
         <div class="artifacts-library">
@@ -746,7 +887,7 @@
         // Глобальные переменные
         let players = [];
         let isDataLoaded = false;
-        const MAX_PLAYERS = 100; // Максимальное количество игроков
+        const MAX_PLAYERS = 100;
         
         // Создаем начальные данные для игроков
         function createInitialPlayers() {
@@ -759,7 +900,8 @@
                     artifacts: Array(6).fill(null),
                     issued: null,
                     notes: "",
-                    visible: false // Изначально все игроки скрыты
+                    visible: false,
+                    order: i
                 });
             }
             return players;
@@ -774,10 +916,9 @@
                     const data = snapshot.val();
                     
                     if (data && data.players) {
-                        // Загружаем сохраненных игроков
                         players = data.players;
                         
-                        // Добавляем недостающих игроков (если MAX_PLAYERS увеличили)
+                        // Добавляем недостающих игроков
                         while (players.length < MAX_PLAYERS) {
                             const newId = players.length + 1;
                             players.push({
@@ -787,19 +928,19 @@
                                 artifacts: Array(6).fill(null),
                                 issued: null,
                                 notes: "",
-                                visible: false
+                                visible: false,
+                                order: newId
                             });
                         }
                         
+                        // Восстанавливаем порядок
+                        players.sort((a, b) => (a.order || a.id) - (b.order || b.id));
+                        
                         document.getElementById('generalNotes').value = data.generalNotes || "";
                         document.getElementById('lastSync').textContent = "данные загружены";
-                        console.log("Данные загружены из Firebase");
                     } else {
-                        // Если данных нет, создаем начальные
                         players = createInitialPlayers();
                         document.getElementById('lastSync').textContent = "созданы начальные данные";
-                        console.log("Созданы начальные данные");
-                        // Сохраняем начальные данные
                         saveData();
                     }
                     
@@ -822,7 +963,7 @@
             if (!isDataLoaded) return;
             
             const data = {
-                players: players.filter(p => p.visible), // Сохраняем только видимых игроков
+                players: players.filter(p => p.visible),
                 generalNotes: document.getElementById('generalNotes').value,
                 timestamp: Date.now()
             };
@@ -833,7 +974,6 @@
                 .then(() => {
                     showSyncNotification();
                     document.getElementById('lastSync').textContent = "данные сохранены";
-                    console.log("Данные успешно сохранены в Firebase");
                 })
                 .catch((error) => {
                     console.error("Ошибка сохранения данных:", error);
@@ -851,13 +991,16 @@
             }
         }
         
-        // Добавляем нового игрока (делаем его видимым)
+        // Добавляем нового игрока
         function addNewPlayer() {
-            // Находим первого скрытого игрока
             const hiddenPlayer = players.find(p => !p.visible);
             
             if (hiddenPlayer) {
                 hiddenPlayer.visible = true;
+                // Устанавливаем порядок как последний
+                const visiblePlayers = players.filter(p => p.visible);
+                hiddenPlayer.order = visiblePlayers.length > 0 ? 
+                    Math.max(...visiblePlayers.map(p => p.order)) + 1 : 1;
                 renderPlayers();
                 document.getElementById('lastSync').textContent = "не сохранено";
             } else {
@@ -865,7 +1008,7 @@
             }
         }
         
-        // Удаляем игрока (делаем его невидимым)
+        // Удаляем игрока
         function deletePlayer(playerId) {
             if (confirm('Вы уверены, что хотите удалить этого игрока?')) {
                 const player = players.find(p => p.id === playerId);
@@ -877,17 +1020,172 @@
             }
         }
         
-        // Отрисовываем всех игроков (только видимых)
+        // Сортируем игроков
+        function sortPlayers(sortType) {
+            const visiblePlayers = players.filter(p => p.visible);
+            
+            switch(sortType) {
+                case 'empty-first':
+                    // От незаполненных к заполненным
+                    visiblePlayers.sort((a, b) => {
+                        const aFilled = a.artifacts.filter(art => art !== null).length;
+                        const bFilled = b.artifacts.filter(art => art !== null).length;
+                        return aFilled - bFilled;
+                    });
+                    break;
+                    
+                case 'filled-first':
+                    // От заполненных к незаполненным
+                    visiblePlayers.sort((a, b) => {
+                        const aFilled = a.artifacts.filter(art => art !== null).length;
+                        const bFilled = b.artifacts.filter(art => art !== null).length;
+                        return bFilled - aFilled;
+                    });
+                    break;
+                    
+                case 'name':
+                    // По имени (А-Я)
+                    visiblePlayers.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                    
+                case 'artifacts':
+                    // По количеству артефактов
+                    visiblePlayers.sort((a, b) => {
+                        const aCount = a.artifacts.filter(art => art !== null).length;
+                        const bCount = b.artifacts.filter(art => art !== null).length;
+                        return bCount - aCount;
+                    });
+                    break;
+                    
+                default:
+                    // Без сортировки - по порядку
+                    visiblePlayers.sort((a, b) => (a.order || a.id) - (b.order || b.id));
+                    return;
+            }
+            
+            // Обновляем порядок после сортировки
+            visiblePlayers.forEach((player, index) => {
+                player.order = index + 1;
+            });
+            
+            renderPlayers();
+            document.getElementById('lastSync').textContent = "не сохранено";
+        }
+        
+        // Меняем игроков местами
+        function swapPlayers(playerId1, playerId2) {
+            const player1 = players.find(p => p.id === playerId1);
+            const player2 = players.find(p => p.id === playerId2);
+            
+            if (player1 && player2) {
+                // Меняем порядок
+                const tempOrder = player1.order;
+                player1.order = player2.order;
+                player2.order = tempOrder;
+                
+                renderPlayers();
+                document.getElementById('lastSync').textContent = "не сохранено";
+            }
+        }
+        
+        // Настройка перетаскивания игроков
+        function setupPlayerDragAndDrop() {
+            const playerElements = document.querySelectorAll('.player.visible');
+            let draggedPlayer = null;
+            let dragPreview = null;
+            
+            playerElements.forEach(playerElement => {
+                const dragHandle = playerElement.querySelector('.player-drag-handle');
+                
+                dragHandle.addEventListener('dragstart', (e) => {
+                    draggedPlayer = playerElement;
+                    playerElement.classList.add('dragging');
+                    
+                    // Создаем превью для перетаскивания
+                    dragPreview = document.createElement('div');
+                    dragPreview.className = 'player-drag-preview';
+                    dragPreview.innerHTML = '<div style="padding: 20px; color: white;">Перемещение игрока</div>';
+                    dragPreview.style.width = `${playerElement.offsetWidth}px`;
+                    document.body.appendChild(dragPreview);
+                    
+                    e.dataTransfer.setData('text/plain', playerElement.dataset.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    
+                    // Обновляем позицию превью
+                    const updatePreviewPosition = (e) => {
+                        if (dragPreview) {
+                            dragPreview.style.left = `${e.clientX}px`;
+                            dragPreview.style.top = `${e.clientY}px`;
+                        }
+                    };
+                    
+                    document.addEventListener('dragover', updatePreviewPosition);
+                });
+                
+                dragHandle.addEventListener('dragend', () => {
+                    if (draggedPlayer) {
+                        draggedPlayer.classList.remove('dragging');
+                        draggedPlayer = null;
+                    }
+                    
+                    if (dragPreview) {
+                        document.body.removeChild(dragPreview);
+                        dragPreview = null;
+                    }
+                    
+                    // Убираем подсветку со всех игроков
+                    playerElements.forEach(el => {
+                        el.style.border = '1px solid var(--border-color)';
+                    });
+                });
+                
+                // Настройка зон перетаскивания
+                playerElement.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (draggedPlayer && draggedPlayer !== playerElement) {
+                        playerElement.style.border = '2px dashed var(--accent-color)';
+                    }
+                });
+                
+                playerElement.addEventListener('dragleave', () => {
+                    playerElement.style.border = '1px solid var(--border-color)';
+                });
+                
+                playerElement.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    playerElement.style.border = '1px solid var(--border-color)';
+                    
+                    if (draggedPlayer && draggedPlayer !== playerElement) {
+                        const draggedId = parseInt(draggedPlayer.dataset.id);
+                        const targetId = parseInt(playerElement.dataset.id);
+                        
+                        swapPlayers(draggedId, targetId);
+                    }
+                });
+            });
+        }
+        
+        // Отрисовываем всех игроков
         function renderPlayers() {
             const container = document.getElementById('playersContainer');
             container.innerHTML = '';
             
-            players.forEach((player) => {
-                if (!player.visible) return;
-                
+            // Сортируем видимых игроков по порядку
+            const visiblePlayers = players.filter(p => p.visible);
+            visiblePlayers.sort((a, b) => (a.order || a.id) - (b.order || b.id));
+            
+            visiblePlayers.forEach((player) => {
                 const playerElement = document.createElement('div');
-                playerElement.className = 'player visible'; // Добавляем класс visible
+                playerElement.className = 'player visible';
                 playerElement.dataset.id = player.id;
+                
+                // Ручка для перетаскивания
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'player-drag-handle';
+                dragHandle.innerHTML = '<i class="fas fa-arrows-alt"></i>';
+                dragHandle.title = 'Перетащите для изменения порядка';
+                dragHandle.draggable = true;
+                playerElement.appendChild(dragHandle);
                 
                 // Кнопка удаления игрока
                 const deleteBtn = document.createElement('button');
@@ -896,6 +1194,17 @@
                 deleteBtn.title = 'Удалить игрока';
                 deleteBtn.addEventListener('click', () => deletePlayer(player.id));
                 playerElement.appendChild(deleteBtn);
+                
+                // Информация о заполненности
+                const playerInfo = document.createElement('div');
+                playerInfo.className = 'player-info';
+                
+                const artifactsCount = player.artifacts.filter(art => art !== null).length;
+                playerInfo.innerHTML = `
+                    <span>Артефактов: <span class="player-artifacts-count">${artifactsCount}/6</span></span>
+                    <span>Порядок: ${player.order || player.id}</span>
+                `;
+                playerElement.appendChild(playerInfo);
                 
                 // Шапка с ником и ссылкой
                 const header = document.createElement('div');
@@ -1033,6 +1342,9 @@
                 
                 container.appendChild(playerElement);
             });
+            
+            // Настраиваем перетаскивание после рендеринга
+            setupPlayerDragAndDrop();
         }
         
         // Создаем элемент артефакта
@@ -1248,6 +1560,10 @@
             document.getElementById('resetBtn').addEventListener('click', resetData);
             document.getElementById('addPlayerBtn').addEventListener('click', addNewPlayer);
             document.getElementById('saveBtn').addEventListener('click', saveData);
+            document.getElementById('sortBtn').addEventListener('click', () => {
+                const sortType = document.getElementById('sortType').value;
+                sortPlayers(sortType);
+            });
             
             // Добавляем обработчики событий перетаскивания для артефактов в библиотеке
             const artifacts = document.querySelectorAll('#artifactsGrid .artifact');
