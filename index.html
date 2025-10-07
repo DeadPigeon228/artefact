@@ -654,6 +654,11 @@
             font-weight: bold;
         }
         
+        .unsaved-changes {
+            color: var(--warning-color) !important;
+            font-weight: bold;
+        }
+        
         @media (max-width: 1200px) {
             .players-container {
                 grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -887,6 +892,7 @@
         // Глобальные переменные
         let players = [];
         let isDataLoaded = false;
+        let hasUnsavedChanges = false;
         const MAX_PLAYERS = 100;
         
         // Создаем начальные данные для игроков
@@ -916,9 +922,15 @@
                     const data = snapshot.val();
                     
                     if (data && data.players) {
-                        players = data.players;
+                        players = data.players.map(player => ({
+                            ...player,
+                            artifacts: player.artifacts || Array(6).fill(null),
+                            issued: player.issued !== undefined ? player.issued : null,
+                            notes: player.notes || "",
+                            visible: player.visible !== undefined ? player.visible : false,
+                            order: player.order || player.id
+                        }));
                         
-                        // Добавляем недостающих игроков
                         while (players.length < MAX_PLAYERS) {
                             const newId = players.length + 1;
                             players.push({
@@ -933,11 +945,12 @@
                             });
                         }
                         
-                        // Восстанавливаем порядок
                         players.sort((a, b) => (a.order || a.id) - (b.order || b.id));
                         
                         document.getElementById('generalNotes').value = data.generalNotes || "";
                         document.getElementById('lastSync').textContent = "данные загружены";
+                        hasUnsavedChanges = false;
+                        updateSaveButton();
                     } else {
                         players = createInitialPlayers();
                         document.getElementById('lastSync').textContent = "созданы начальные данные";
@@ -965,7 +978,8 @@
             const data = {
                 players: players.filter(p => p.visible),
                 generalNotes: document.getElementById('generalNotes').value,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                lastModified: new Date().toISOString()
             };
             
             document.getElementById('lastSync').textContent = "сохранение...";
@@ -974,11 +988,35 @@
                 .then(() => {
                     showSyncNotification();
                     document.getElementById('lastSync').textContent = "данные сохранены";
+                    hasUnsavedChanges = false;
+                    updateSaveButton();
                 })
                 .catch((error) => {
                     console.error("Ошибка сохранения данных:", error);
                     document.getElementById('lastSync').textContent = "ошибка сохранения";
                 });
+        }
+        
+        // Обновляем состояние кнопки сохранения
+        function updateSaveButton() {
+            const saveBtn = document.getElementById('saveBtn');
+            if (hasUnsavedChanges) {
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить в Firebase (есть изменения)';
+                saveBtn.style.backgroundColor = 'var(--warning-color)';
+                document.getElementById('lastSync').className = 'sync-status unsaved-changes';
+            } else {
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить в Firebase';
+                saveBtn.style.backgroundColor = 'var(--primary-color)';
+                document.getElementById('lastSync').className = 'sync-status';
+            }
+        }
+        
+        // Отмечаем наличие несохраненных изменений
+        function markUnsavedChanges() {
+            if (!hasUnsavedChanges) {
+                hasUnsavedChanges = true;
+                updateSaveButton();
+            }
         }
         
         // Сбрасываем все данные
@@ -987,7 +1025,7 @@
                 players = createInitialPlayers();
                 document.getElementById('generalNotes').value = "";
                 renderPlayers();
-                saveData();
+                markUnsavedChanges();
             }
         }
         
@@ -997,12 +1035,11 @@
             
             if (hiddenPlayer) {
                 hiddenPlayer.visible = true;
-                // Устанавливаем порядок как последний
                 const visiblePlayers = players.filter(p => p.visible);
                 hiddenPlayer.order = visiblePlayers.length > 0 ? 
                     Math.max(...visiblePlayers.map(p => p.order)) + 1 : 1;
                 renderPlayers();
-                document.getElementById('lastSync').textContent = "не сохранено";
+                markUnsavedChanges();
             } else {
                 alert("Достигнуто максимальное количество игроков!");
             }
@@ -1015,7 +1052,7 @@
                 if (player) {
                     player.visible = false;
                     renderPlayers();
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
                 }
             }
         }
@@ -1026,7 +1063,6 @@
             
             switch(sortType) {
                 case 'empty-first':
-                    // От незаполненных к заполненным
                     visiblePlayers.sort((a, b) => {
                         const aFilled = a.artifacts.filter(art => art !== null).length;
                         const bFilled = b.artifacts.filter(art => art !== null).length;
@@ -1035,7 +1071,6 @@
                     break;
                     
                 case 'filled-first':
-                    // От заполненных к незаполненным
                     visiblePlayers.sort((a, b) => {
                         const aFilled = a.artifacts.filter(art => art !== null).length;
                         const bFilled = b.artifacts.filter(art => art !== null).length;
@@ -1044,12 +1079,10 @@
                     break;
                     
                 case 'name':
-                    // По имени (А-Я)
                     visiblePlayers.sort((a, b) => a.name.localeCompare(b.name));
                     break;
                     
                 case 'artifacts':
-                    // По количеству артефактов
                     visiblePlayers.sort((a, b) => {
                         const aCount = a.artifacts.filter(art => art !== null).length;
                         const bCount = b.artifacts.filter(art => art !== null).length;
@@ -1058,18 +1091,16 @@
                     break;
                     
                 default:
-                    // Без сортировки - по порядку
                     visiblePlayers.sort((a, b) => (a.order || a.id) - (b.order || b.id));
                     return;
             }
             
-            // Обновляем порядок после сортировки
             visiblePlayers.forEach((player, index) => {
                 player.order = index + 1;
             });
             
             renderPlayers();
-            document.getElementById('lastSync').textContent = "не сохранено";
+            markUnsavedChanges();
         }
         
         // Меняем игроков местами
@@ -1078,13 +1109,12 @@
             const player2 = players.find(p => p.id === playerId2);
             
             if (player1 && player2) {
-                // Меняем порядок
                 const tempOrder = player1.order;
                 player1.order = player2.order;
                 player2.order = tempOrder;
                 
                 renderPlayers();
-                document.getElementById('lastSync').textContent = "не сохранено";
+                markUnsavedChanges();
             }
         }
         
@@ -1101,7 +1131,6 @@
                     draggedPlayer = playerElement;
                     playerElement.classList.add('dragging');
                     
-                    // Создаем превью для перетаскивания
                     dragPreview = document.createElement('div');
                     dragPreview.className = 'player-drag-preview';
                     dragPreview.innerHTML = '<div style="padding: 20px; color: white;">Перемещение игрока</div>';
@@ -1111,7 +1140,6 @@
                     e.dataTransfer.setData('text/plain', playerElement.dataset.id);
                     e.dataTransfer.effectAllowed = 'move';
                     
-                    // Обновляем позицию превью
                     const updatePreviewPosition = (e) => {
                         if (dragPreview) {
                             dragPreview.style.left = `${e.clientX}px`;
@@ -1133,13 +1161,11 @@
                         dragPreview = null;
                     }
                     
-                    // Убираем подсветку со всех игроков
                     playerElements.forEach(el => {
                         el.style.border = '1px solid var(--border-color)';
                     });
                 });
                 
-                // Настройка зон перетаскивания
                 playerElement.addEventListener('dragover', (e) => {
                     e.preventDefault();
                     if (draggedPlayer && draggedPlayer !== playerElement) {
@@ -1158,7 +1184,6 @@
                     if (draggedPlayer && draggedPlayer !== playerElement) {
                         const draggedId = parseInt(draggedPlayer.dataset.id);
                         const targetId = parseInt(playerElement.dataset.id);
-                        
                         swapPlayers(draggedId, targetId);
                     }
                 });
@@ -1170,7 +1195,6 @@
             const container = document.getElementById('playersContainer');
             container.innerHTML = '';
             
-            // Сортируем видимых игроков по порядку
             const visiblePlayers = players.filter(p => p.visible);
             visiblePlayers.sort((a, b) => (a.order || a.id) - (b.order || b.id));
             
@@ -1218,7 +1242,7 @@
                 nameInput.addEventListener('input', (e) => {
                     player.name = e.target.value;
                     updatePlayerLink(player);
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
                 });
                 
                 const linkContainer = document.createElement('div');
@@ -1231,7 +1255,7 @@
                 linkInput.value = player.link;
                 linkInput.addEventListener('input', (e) => {
                     player.link = e.target.value;
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
                 });
                 
                 const link = document.createElement('a');
@@ -1268,11 +1292,10 @@
                         slot.appendChild(empty);
                     }
                     
-                    // Добавляем обработчики событий перетаскивания
                     slot.addEventListener('dragover', dragOver);
                     slot.addEventListener('dragenter', dragEnter);
                     slot.addEventListener('dragleave', dragLeave);
-                    slot.addEventListener('drop', drop);
+                    slot.addEventListener('drop', (e) => handleArtifactDrop(e, player.id, i));
                     
                     artifactsContainer.appendChild(slot);
                 }
@@ -1295,9 +1318,8 @@
                 yesBtn.textContent = 'Да';
                 yesBtn.addEventListener('click', () => {
                     player.issued = true;
-                    yesBtn.classList.add('active');
-                    noBtn.classList.remove('active');
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
+                    renderPlayers();
                 });
                 
                 const noBtn = document.createElement('button');
@@ -1305,9 +1327,8 @@
                 noBtn.textContent = 'Нет';
                 noBtn.addEventListener('click', () => {
                     player.issued = false;
-                    noBtn.classList.add('active');
-                    yesBtn.classList.remove('active');
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
+                    renderPlayers();
                 });
                 
                 issuedButtons.appendChild(yesBtn);
@@ -1333,7 +1354,7 @@
                 notesInput.value = player.notes || '';
                 notesInput.addEventListener('input', (e) => {
                     player.notes = e.target.value;
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
                 });
                 
                 notesContainer.appendChild(notesLabel);
@@ -1343,8 +1364,68 @@
                 container.appendChild(playerElement);
             });
             
-            // Настраиваем перетаскивание после рендеринга
             setupPlayerDragAndDrop();
+        }
+
+        // Обработка перетаскивания артефактов
+        function handleArtifactDrop(e, playerId, slotIndex) {
+            e.preventDefault();
+            this.classList.remove('highlight');
+            
+            const artifactId = e.dataTransfer.getData('text/plain');
+            const player = players.find(p => p.id === playerId);
+            
+            if (!player) return;
+            
+            if (draggedItem && draggedItem.parentElement.id === 'artifactsGrid') {
+                const newArtifact = createArtifactElement(artifactId);
+                newArtifact.classList.add('artifact-added');
+                
+                this.innerHTML = '';
+                this.appendChild(newArtifact);
+                
+                player.artifacts[slotIndex] = parseInt(artifactId);
+                markUnsavedChanges();
+            }
+            else if (draggedItem && draggedItem.classList.contains('artifact')) {
+                const sourceSlot = draggedItem.parentElement;
+                const sourcePlayerId = parseInt(sourceSlot.dataset.playerId);
+                const sourceSlotIndex = parseInt(sourceSlot.dataset.slot);
+                
+                const sourcePlayer = players.find(p => p.id === sourcePlayerId);
+                if (!sourcePlayer) return;
+                
+                const movedArtifactId = parseInt(draggedItem.dataset.id);
+                
+                if (this.childNodes.length === 1 && this.firstChild.classList.contains('empty-slot')) {
+                    this.innerHTML = '';
+                    draggedItem.classList.add('artifact-added');
+                    this.appendChild(draggedItem);
+                    
+                    sourcePlayer.artifacts[sourceSlotIndex] = null;
+                    player.artifacts[slotIndex] = movedArtifactId;
+                    
+                    sourceSlot.innerHTML = '';
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-slot';
+                    empty.textContent = 'Перетащите артефакт';
+                    sourceSlot.appendChild(empty);
+                    
+                    markUnsavedChanges();
+                }
+                else if (this.firstChild.classList.contains('artifact')) {
+                    const targetArtifact = this.firstChild;
+                    const targetArtifactId = parseInt(targetArtifact.dataset.id);
+                    
+                    this.replaceChild(draggedItem, targetArtifact);
+                    sourceSlot.appendChild(targetArtifact);
+                    
+                    sourcePlayer.artifacts[sourceSlotIndex] = targetArtifactId;
+                    player.artifacts[slotIndex] = movedArtifactId;
+                    
+                    markUnsavedChanges();
+                }
+            }
         }
         
         // Создаем элемент артефакта
@@ -1354,7 +1435,6 @@
             artifact.dataset.id = artifactId;
             artifact.draggable = true;
             
-            // Устанавливаем картинку из библиотеки артефактов
             const artifactInLibrary = document.querySelector(`.artifact[data-id="${artifactId}"]`);
             if (artifactInLibrary) {
                 artifact.style.backgroundImage = artifactInLibrary.style.backgroundImage;
@@ -1377,7 +1457,6 @@
             artifact.appendChild(number);
             artifact.appendChild(removeBtn);
             
-            // Добавляем обработчики событий перетаскивания
             artifact.addEventListener('dragstart', dragStart);
             artifact.addEventListener('dragend', dragEnd);
             
@@ -1401,7 +1480,7 @@
                     empty.textContent = 'Перетащите артефакт';
                     slot.appendChild(empty);
                     
-                    document.getElementById('lastSync').textContent = "не сохранено";
+                    markUnsavedChanges();
                 }
             }
         }
@@ -1424,13 +1503,11 @@
             this.classList.add('dragging');
             e.dataTransfer.setData('text/plain', this.dataset.id);
             
-            // Создаем превью для перетаскивания
             dragPreview = document.createElement('div');
             dragPreview.className = 'drag-preview';
             dragPreview.style.backgroundImage = this.style.backgroundImage;
             document.body.appendChild(dragPreview);
             
-            // Позиционируем превью
             const updatePreviewPosition = (e) => {
                 dragPreview.style.left = `${e.clientX}px`;
                 dragPreview.style.top = `${e.clientY}px`;
@@ -1448,7 +1525,6 @@
             this.style.opacity = '1';
             draggedItem = null;
             
-            // Удаляем превью
             if (dragPreview) {
                 document.body.removeChild(dragPreview);
                 dragPreview = null;
@@ -1469,77 +1545,7 @@
         }
         
         function drop(e) {
-            e.preventDefault();
-            this.classList.remove('highlight');
-            
-            const artifactId = e.dataTransfer.getData('text/plain');
-            const playerId = parseInt(this.dataset.playerId);
-            const slotIndex = parseInt(this.dataset.slot);
-            
-            // Находим игрока
-            const player = players.find(p => p.id === playerId);
-            if (!player) return;
-            
-            // Если перетаскиваем из библиотеки артефактов
-            if (draggedItem && draggedItem.parentElement.id === 'artifactsGrid') {
-                // Создаем новую копию артефакта
-                const newArtifact = createArtifactElement(artifactId);
-                newArtifact.classList.add('artifact-added');
-                
-                // Очищаем слот
-                this.innerHTML = '';
-                this.appendChild(newArtifact);
-                
-                // Обновляем данные игрока
-                player.artifacts[slotIndex] = parseInt(artifactId);
-            }
-            // Если перетаскиваем между слотами
-            else if (draggedItem && draggedItem.classList.contains('artifact')) {
-                const sourceSlot = draggedItem.parentElement;
-                const sourcePlayerId = parseInt(sourceSlot.dataset.playerId);
-                const sourceSlotIndex = parseInt(sourceSlot.dataset.slot);
-                
-                // Находим исходного игрока
-                const sourcePlayer = players.find(p => p.id === sourcePlayerId);
-                if (!sourcePlayer) return;
-                
-                // Получаем ID артефакта
-                const movedArtifactId = parseInt(draggedItem.dataset.id);
-                
-                // Если слот пустой
-                if (this.childNodes.length === 1 && this.firstChild.classList.contains('empty-slot')) {
-                    // Перемещаем артефакт
-                    this.innerHTML = '';
-                    draggedItem.classList.add('artifact-added');
-                    this.appendChild(draggedItem);
-                    
-                    // Обновляем данные
-                    player.artifacts[slotIndex] = movedArtifactId;
-                    sourcePlayer.artifacts[sourceSlotIndex] = null;
-                    
-                    // Очищаем исходный слот
-                    sourceSlot.innerHTML = '';
-                    const empty = document.createElement('div');
-                    empty.className = 'empty-slot';
-                    empty.textContent = 'Перетащите артефакт';
-                    sourceSlot.appendChild(empty);
-                }
-                // Если слот занят - меняем местами
-                else if (this.firstChild.classList.contains('artifact')) {
-                    const targetArtifact = this.firstChild;
-                    const targetArtifactId = parseInt(targetArtifact.dataset.id);
-                    
-                    // Меняем артефакты местами
-                    this.replaceChild(draggedItem, targetArtifact);
-                    sourceSlot.appendChild(targetArtifact);
-                    
-                    // Обновляем данные
-                    player.artifacts[slotIndex] = movedArtifactId;
-                    sourcePlayer.artifacts[sourceSlotIndex] = targetArtifactId;
-                }
-            }
-            
-            document.getElementById('lastSync').textContent = "не сохранено";
+            // Эта функция теперь не используется, используется handleArtifactDrop
         }
         
         // Показываем уведомление о синхронизации
@@ -1565,6 +1571,9 @@
                 sortPlayers(sortType);
             });
             
+            // Отмечаем изменения в общих заметках
+            document.getElementById('generalNotes').addEventListener('input', markUnsavedChanges);
+            
             // Добавляем обработчики событий перетаскивания для артефактов в библиотеке
             const artifacts = document.querySelectorAll('#artifactsGrid .artifact');
             artifacts.forEach(artifact => {
@@ -1575,15 +1584,33 @@
             // Слушаем изменения в Firebase в реальном времени
             database.ref('data').on('value', (snapshot) => {
                 const data = snapshot.val();
-                if (data) {
-                    // Обновляем только видимых игроков
-                    const visiblePlayers = players.filter(p => p.visible);
-                    data.players.forEach(savedPlayer => {
-                        const existingPlayer = visiblePlayers.find(p => p.id === savedPlayer.id);
-                        if (existingPlayer) {
-                            Object.assign(existingPlayer, savedPlayer);
-                        }
-                    });
+                if (data && data.timestamp && !hasUnsavedChanges) {
+                    console.log("Получены обновленные данные из Firebase");
+                    
+                    players = data.players.map(player => ({
+                        ...player,
+                        artifacts: player.artifacts || Array(6).fill(null),
+                        issued: player.issued !== undefined ? player.issued : null,
+                        notes: player.notes || "",
+                        visible: player.visible !== undefined ? player.visible : false,
+                        order: player.order || player.id
+                    }));
+                    
+                    while (players.length < MAX_PLAYERS) {
+                        const newId = players.length + 1;
+                        players.push({
+                            id: newId,
+                            name: `Игрок ${newId}`,
+                            link: "",
+                            artifacts: Array(6).fill(null),
+                            issued: null,
+                            notes: "",
+                            visible: false,
+                            order: newId
+                        });
+                    }
+                    
+                    players.sort((a, b) => (a.order || a.id) - (b.order || b.id));
                     
                     document.getElementById('generalNotes').value = data.generalNotes || '';
                     renderPlayers();
