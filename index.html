@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* Все стили остаются без изменений */
         :root {
             --primary-color: #4a6fa5;
             --secondary-color: #166088;
@@ -127,7 +128,6 @@
             font-size: 14px;
         }
         
-        /* Стили для выпадающего списка */
         .sort-controls select {
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
@@ -149,7 +149,6 @@
             box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.3);
         }
         
-        /* Стили для опций в выпадающем списке */
         .sort-controls select option {
             background-color: rgba(0, 0, 0, 0.9);
             color: white;
@@ -698,8 +697,8 @@
         
         <div class="survey-link">
             <a href="https://docs.google.com/forms/d/1viuW5O51bHTKwf1ZDZnbpIzpHKQZunJGna7s3W8a0UY/edit#question=1626958030&field=231114041" id="allSurveysLink" target="_blank">-Ссылка на все опросники-</a>
-               </div>
-            <div class="survey-link">
+        </div>
+        <div class="survey-link">
             <a href="https://docs.google.com/spreadsheets/d/17fon-4iQkof8Vf9vr4Cq5vPLV1ODBK5nH4bW77L_i1s/edit?gid=0#gid=0" id="allSurveysLink" target="_blank">-Ссылка на Гугл таблицу-</a>
         </div>
         <div class="survey-link">
@@ -1295,10 +1294,37 @@
                         slot.appendChild(empty);
                     }
                     
-                    slot.addEventListener('dragover', dragOver);
-                    slot.addEventListener('dragenter', dragEnter);
-                    slot.addEventListener('dragleave', dragLeave);
-                    slot.addEventListener('drop', (e) => handleArtifactDrop(e, player.id, i));
+                    // УПРОЩЕННАЯ ЛОГИКА ПЕРЕТАСКИВАНИЯ
+                    slot.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        slot.classList.add('highlight');
+                    });
+                    
+                    slot.addEventListener('dragleave', () => {
+                        slot.classList.remove('highlight');
+                    });
+                    
+                    slot.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        slot.classList.remove('highlight');
+                        
+                        const artifactId = e.dataTransfer.getData('text/plain');
+                        console.log('Drop artifact:', artifactId, 'to player:', player.id, 'slot:', i);
+                        
+                        // Создаем новый артефакт в слоте
+                        const newArtifact = createArtifactElement(parseInt(artifactId));
+                        newArtifact.classList.add('artifact-added');
+                        
+                        // Очищаем слот и добавляем артефакт
+                        slot.innerHTML = '';
+                        slot.appendChild(newArtifact);
+                        
+                        // Сохраняем в данные
+                        player.artifacts[i] = parseInt(artifactId);
+                        markUnsavedChanges();
+                        
+                        console.log('Artifact added successfully');
+                    });
                     
                     artifactsContainer.appendChild(slot);
                 }
@@ -1369,67 +1395,6 @@
             
             setupPlayerDragAndDrop();
         }
-
-        // Обработка перетаскивания артефактов
-        function handleArtifactDrop(e, playerId, slotIndex) {
-            e.preventDefault();
-            this.classList.remove('highlight');
-            
-            const artifactId = e.dataTransfer.getData('text/plain');
-            const player = players.find(p => p.id === playerId);
-            
-            if (!player) return;
-            
-            if (draggedItem && draggedItem.parentElement.id === 'artifactsGrid') {
-                const newArtifact = createArtifactElement(artifactId);
-                newArtifact.classList.add('artifact-added');
-                
-                this.innerHTML = '';
-                this.appendChild(newArtifact);
-                
-                player.artifacts[slotIndex] = parseInt(artifactId);
-                markUnsavedChanges();
-            }
-            else if (draggedItem && draggedItem.classList.contains('artifact')) {
-                const sourceSlot = draggedItem.parentElement;
-                const sourcePlayerId = parseInt(sourceSlot.dataset.playerId);
-                const sourceSlotIndex = parseInt(sourceSlot.dataset.slot);
-                
-                const sourcePlayer = players.find(p => p.id === sourcePlayerId);
-                if (!sourcePlayer) return;
-                
-                const movedArtifactId = parseInt(draggedItem.dataset.id);
-                
-                if (this.childNodes.length === 1 && this.firstChild.classList.contains('empty-slot')) {
-                    this.innerHTML = '';
-                    draggedItem.classList.add('artifact-added');
-                    this.appendChild(draggedItem);
-                    
-                    sourcePlayer.artifacts[sourceSlotIndex] = null;
-                    player.artifacts[slotIndex] = movedArtifactId;
-                    
-                    sourceSlot.innerHTML = '';
-                    const empty = document.createElement('div');
-                    empty.className = 'empty-slot';
-                    empty.textContent = 'Перетащите артефакт';
-                    sourceSlot.appendChild(empty);
-                    
-                    markUnsavedChanges();
-                }
-                else if (this.firstChild.classList.contains('artifact')) {
-                    const targetArtifact = this.firstChild;
-                    const targetArtifactId = parseInt(targetArtifact.dataset.id);
-                    
-                    this.replaceChild(draggedItem, targetArtifact);
-                    sourceSlot.appendChild(targetArtifact);
-                    
-                    sourcePlayer.artifacts[sourceSlotIndex] = targetArtifactId;
-                    player.artifacts[slotIndex] = movedArtifactId;
-                    
-                    markUnsavedChanges();
-                }
-            }
-        }
         
         // Создаем элемент артефакта
         function createArtifactElement(artifactId) {
@@ -1438,6 +1403,7 @@
             artifact.dataset.id = artifactId;
             artifact.draggable = true;
             
+            // Находим оригинальный артефакт в библиотеке и копируем его стиль
             const artifactInLibrary = document.querySelector(`.artifact[data-id="${artifactId}"]`);
             if (artifactInLibrary) {
                 artifact.style.backgroundImage = artifactInLibrary.style.backgroundImage;
@@ -1460,8 +1426,16 @@
             artifact.appendChild(number);
             artifact.appendChild(removeBtn);
             
-            artifact.addEventListener('dragstart', dragStart);
-            artifact.addEventListener('dragend', dragEnd);
+            // ПРОСТАЯ ЛОГИКА ПЕРЕТАСКИВАНИЯ
+            artifact.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', artifactId);
+                e.dataTransfer.effectAllowed = 'copy';
+                artifact.classList.add('dragging');
+            });
+            
+            artifact.addEventListener('dragend', () => {
+                artifact.classList.remove('dragging');
+            });
             
             return artifact;
         }
@@ -1497,60 +1471,6 @@
             }
         }
         
-        // Перетаскивание артефактов
-        let draggedItem = null;
-        let dragPreview = null;
-        
-        function dragStart(e) {
-            draggedItem = this;
-            this.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', this.dataset.id);
-            
-            dragPreview = document.createElement('div');
-            dragPreview.className = 'drag-preview';
-            dragPreview.style.backgroundImage = this.style.backgroundImage;
-            document.body.appendChild(dragPreview);
-            
-            const updatePreviewPosition = (e) => {
-                dragPreview.style.left = `${e.clientX}px`;
-                dragPreview.style.top = `${e.clientY}px`;
-            };
-            
-            document.addEventListener('dragover', updatePreviewPosition);
-            
-            setTimeout(() => {
-                this.style.opacity = '0.4';
-            }, 0);
-        }
-        
-        function dragEnd() {
-            this.classList.remove('dragging');
-            this.style.opacity = '1';
-            draggedItem = null;
-            
-            if (dragPreview) {
-                document.body.removeChild(dragPreview);
-                dragPreview = null;
-            }
-        }
-        
-        function dragOver(e) {
-            e.preventDefault();
-        }
-        
-        function dragEnter(e) {
-            e.preventDefault();
-            this.classList.add('highlight');
-        }
-        
-        function dragLeave() {
-            this.classList.remove('highlight');
-        }
-        
-        function drop(e) {
-            // Эта функция теперь не используется, используется handleArtifactDrop
-        }
-        
         // Показываем уведомление о синхронизации
         function showSyncNotification() {
             const notification = document.getElementById('syncNotification');
@@ -1577,11 +1497,18 @@
             // Отмечаем изменения в общих заметках
             document.getElementById('generalNotes').addEventListener('input', markUnsavedChanges);
             
-            // Добавляем обработчики событий перетаскивания для артефактов в библиотеке
+            // ПРОСТАЯ НАСТРОЙКА ПЕРЕТАСКИВАНИЯ ДЛЯ АРТЕФАКТОВ В БИБЛИОТЕКЕ
             const artifacts = document.querySelectorAll('#artifactsGrid .artifact');
             artifacts.forEach(artifact => {
-                artifact.addEventListener('dragstart', dragStart);
-                artifact.addEventListener('dragend', dragEnd);
+                artifact.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', artifact.dataset.id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    artifact.classList.add('dragging');
+                });
+                
+                artifact.addEventListener('dragend', () => {
+                    artifact.classList.remove('dragging');
+                });
             });
             
             // Слушаем изменения в Firebase в реальном времени
@@ -1624,5 +1551,4 @@
     </script>
 </body>
 </html>
-
 
